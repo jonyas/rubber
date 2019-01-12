@@ -56,6 +56,7 @@ class _RubberBottomSheetState extends State<RubberBottomSheet> with TickerProvid
 
   bool get _shouldScroll => _scrollController != null;
   bool _scrolling = false;
+  bool _dragging = false;
 
   ScrollController get _scrollController => widget.scrollController;
 
@@ -153,16 +154,21 @@ class _RubberBottomSheetState extends State<RubberBottomSheet> with TickerProvid
   Drag _drag;
   ScrollHoldController _hold;
 
+
+
   void _onVerticalDragDown(DragDownDetails details) {
     assert(_drag == null);
     assert(_hold == null);
-    _hold = _scrollController.position.hold(_disposeHold);
+    _dragging = _draggingPeak(details.globalPosition);
+    if(_dragging || _controller.value != _controller.upperBound) {
+      _setScrolling(false);
+    } else {
+      _setScrolling(true);
+      _hold = _scrollController.position.hold(_disposeHold);
+    }
   }
 
-  Offset _lastPosition;
-
   void _onVerticalDragUpdate(DragUpdateDetails details) {
-    _lastPosition = details.globalPosition;
     if(_scrolling) {
       // _drag might be null if the drag activity ended and called _disposeDrag.
       assert(_hold == null || _drag == null);
@@ -189,14 +195,12 @@ class _RubberBottomSheetState extends State<RubberBottomSheet> with TickerProvid
 
       _controller.value -= details.primaryDelta / screenHeight * friction;
 
-      if(_controller.value >= _controller.upperBound && !_draggingPeak(_lastPosition)) {
+      if(_controller.value >= _controller.upperBound && !_dragging) {
         _controller.value = _controller.upperBound;
         _setScrolling(true);
         var startDetails = DragStartDetails(sourceTimeStamp: details.sourceTimeStamp, globalPosition: details.globalPosition);
         _hold = _scrollController.position.hold(_disposeHold);
         _drag = _scrollController.position.drag(startDetails, _disposeDrag);
-      } else {
-        _handleDragCancel();
       }
     }
   }
@@ -208,66 +212,29 @@ class _RubberBottomSheetState extends State<RubberBottomSheet> with TickerProvid
   }
 
   void _handleDragStart(DragStartDetails details) {
-    // It's possible for _hold to become null between _handleDragDown and
-    // _handleDragStart, for example if some user code calls jumpTo or otherwise
-    // triggers a new activity to begin.
-    assert(_drag == null);
-    _drag = _scrollController.position.drag(details, _disposeDrag);
-    assert(_drag != null);
-    assert(_hold == null);
+    if(_scrolling) {
+      // It's possible for _hold to become null between _handleDragDown and
+      // _handleDragStart, for example if some user code calls jumpTo or otherwise
+      // triggers a new activity to begin.
+      assert(_drag == null);
+      _drag = _scrollController.position.drag(details, _disposeDrag);
+      assert(_drag != null);
+      assert(_hold == null);
+    }
   }
 
   void _onVerticalDragEnd(DragEndDetails details) {
-    final double flingVelocity = -details.velocity.pixelsPerSecond.dy / screenHeight;
     if(_scrolling) {
       assert(_hold == null || _drag == null);
       _drag?.end(details);
       assert(_drag == null);
     } else {
-      if (details.velocity.pixelsPerSecond.dy.abs() > _kCompleteFlingVelocity) {
-        _controller.fling(_controller.lowerBound, _controller.upperBound,
-            velocity: flingVelocity);
-      } else {
-        if (halfState) {
-          if (details.velocity.pixelsPerSecond.dy.abs() > _kMinFlingVelocity) {
-            if (_controller.value > _controller.halfBound) {
-              _controller.fling(_controller.halfBound, _controller.upperBound,
-                  velocity: flingVelocity);
-            } else {
-              _controller.fling(_controller.lowerBound, _controller.halfBound,
-                  velocity: flingVelocity);
-            }
-          } else {
-            if (_controller.value >
-                (_controller.upperBound + _controller.halfBound) / 2) {
-              _controller.expand();
-            }
-            else if (_controller.value >
-                (_controller.halfBound + _controller.lowerBound) / 2) {
-              _controller.halfExpand();
-            } else {
-              _controller.collapse();
-            }
-          }
-        } else {
-          if (details.velocity.pixelsPerSecond.dy.abs() > _kMinFlingVelocity) {
-            _controller.fling(_controller.lowerBound, _controller.upperBound,
-                velocity: flingVelocity);
-          } else {
-            if (_controller.value >
-                (_controller.upperBound - _controller.lowerBound) / 2) {
-              _controller.expand();
-            } else {
-              _controller.collapse();
-            }
-          }
-        }
-      }
+      _verticalDragEndBottomsheet(details);
     }
+    _handleDragCancel();
   }
 
   void _handleDragCancel() {
-
     // _hold might be null if the drag started.
     // _drag might be null if the drag activity ended and called _disposeDrag.
     assert(_hold == null || _drag == null);
@@ -296,6 +263,49 @@ class _RubberBottomSheetState extends State<RubberBottomSheet> with TickerProvid
     final sizePeak = renderBoxRed.size;
     final top = (sizePeak.height + positionPeak.dy);
     return (globalPosition.dy < top);
+  }
+
+  _verticalDragEndBottomsheet(details) {
+    final double flingVelocity = -details.velocity.pixelsPerSecond.dy / screenHeight;
+    if (details.velocity.pixelsPerSecond.dy.abs() > _kCompleteFlingVelocity) {
+      _controller.fling(_controller.lowerBound, _controller.upperBound,
+          velocity: flingVelocity);
+    } else {
+      if (halfState) {
+        if (details.velocity.pixelsPerSecond.dy.abs() > _kMinFlingVelocity) {
+          if (_controller.value > _controller.halfBound) {
+            _controller.fling(_controller.halfBound, _controller.upperBound,
+                velocity: flingVelocity);
+          } else {
+            _controller.fling(_controller.lowerBound, _controller.halfBound,
+                velocity: flingVelocity);
+          }
+        } else {
+          if (_controller.value >
+              (_controller.upperBound + _controller.halfBound) / 2) {
+            _controller.expand();
+          }
+          else if (_controller.value >
+              (_controller.halfBound + _controller.lowerBound) / 2) {
+            _controller.halfExpand();
+          } else {
+            _controller.collapse();
+          }
+        }
+      } else {
+        if (details.velocity.pixelsPerSecond.dy.abs() > _kMinFlingVelocity) {
+          _controller.fling(_controller.lowerBound, _controller.upperBound,
+              velocity: flingVelocity);
+        } else {
+          if (_controller.value >
+              (_controller.upperBound - _controller.lowerBound) / 2) {
+            _controller.expand();
+          } else {
+            _controller.collapse();
+          }
+        }
+      }
+    }
   }
 }
 

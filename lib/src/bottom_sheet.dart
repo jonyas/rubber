@@ -156,7 +156,7 @@ class _RubberBottomSheetState extends State<RubberBottomSheet> with TickerProvid
   void _onVerticalDragDown(DragDownDetails details) {
     assert(_drag == null);
     assert(_hold == null);
-    _hold = _scrollController.position.hold(_disposeHold);
+    _hold = _scrollController?.position?.hold(_disposeHold);
   }
 
   Offset _lastPosition;
@@ -170,8 +170,8 @@ class _RubberBottomSheetState extends State<RubberBottomSheet> with TickerProvid
       if(_scrollController.position.pixels <= 0 && details.primaryDelta>0) {
         _setScrolling(false);
         _handleDragCancel();
-        if(_scrollController.position.pixels != 0.0) {
-          _scrollController.position.setPixels(0.0);
+        if(_scrollController?.position?.pixels != 0.0) {
+          _scrollController?.position?.setPixels(0.0);
         }
       }
     } else {
@@ -193,8 +193,8 @@ class _RubberBottomSheetState extends State<RubberBottomSheet> with TickerProvid
         _controller.value = _controller.upperBound;
         _setScrolling(true);
         var startDetails = DragStartDetails(sourceTimeStamp: details.sourceTimeStamp, globalPosition: details.globalPosition);
-        _hold = _scrollController.position.hold(_disposeHold);
-        _drag = _scrollController.position.drag(startDetails, _disposeDrag);
+        _hold = _scrollController?.position?.hold(_disposeHold);
+        _drag = _scrollController?.position?.drag(startDetails, _disposeDrag);
       } else {
         _handleDragCancel();
       }
@@ -212,7 +212,7 @@ class _RubberBottomSheetState extends State<RubberBottomSheet> with TickerProvid
     // _handleDragStart, for example if some user code calls jumpTo or otherwise
     // triggers a new activity to begin.
     assert(_drag == null);
-    _drag = _scrollController.position.drag(details, _disposeDrag);
+    _drag = _scrollController?.position?.drag(details, _disposeDrag);
     assert(_drag != null);
     assert(_hold == null);
   }
